@@ -51,7 +51,7 @@ class KBSearch:
     def TranslateFromThai(self, text, lan):
         response = self.translateClient.translate_text(
             Text=str(text),
-            SourceLanguageCode='TH',
+            SourceLanguageCode='auto',
             TargetLanguageCode=lan
         )
         return response.get('TranslatedText')
