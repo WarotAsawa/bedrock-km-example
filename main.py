@@ -20,11 +20,15 @@ def main():
         #searchText = 'โทษครับของ พรบ อาคารชุด มีอะไรบ้าง'
         #searchText = 'บทลงโทษผู้ที่ฝ่าฝืนบทบัญญัติมีอะไรบ้าง'
         result =  searcher.RetrieveAndGenerate(searchText)
-        
+        resultText = result['output']['text']
+        citations = result['citations']#
+        for citation in citations:
+            retrievedReferences = citation['retrievedReferences']
+            for ref in retrievedReferences:
+                print(ref['location']['s3Location']['uri'])
         print("Output : ")
-        print(result)
+        print(resultText)
         print("----------------------------------------------------------\nInput : ")
     print("Exit")
-    #print(GetKMID(agentClient))
     
 main()

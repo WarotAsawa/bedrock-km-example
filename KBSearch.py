@@ -34,7 +34,8 @@ class KBSearch:
             #    'kmsKeyArn': 'string'
             #}
         )
-        return response['output']['text']
+        #print(response['retrievedReferences'])
+        return response
     
     def GetKMID(self,client):
         response = client.list_knowledge_bases()
