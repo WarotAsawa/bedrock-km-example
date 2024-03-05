@@ -9,6 +9,11 @@ kmID = 'your-km-id'
 modelArn = "arn:aws:bedrock:us-east-1::foundation-model/anthropic.claude-v2"
 searcher = KBSearch(kmID, modelArn)
 
+if modelArn != "":
+    modelName = modelArn.split('/')[1]
+    modelName = ":gray[Now using model :] *:orange[" + modelName +"]*"
+    st.markdown(modelName)
+
 if 'chat_history' not in st.session_state: #see if the chat history hasn't been created yet
     st.session_state.chat_history = [] #initialize the chat history
 
