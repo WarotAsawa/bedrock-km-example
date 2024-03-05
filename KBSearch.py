@@ -27,9 +27,8 @@ class KBSearch:
         )
         return response 
     
-    def RetrieveAndGenerate(self,text, kmID):
+    def RetrieveAndGenerate(self,text, kmID, modelArn):
         response = self.agentRuntimeClient.retrieve_and_generate(
-            #sessionId='string',
             input={
                 'text': text
             },
@@ -37,11 +36,11 @@ class KBSearch:
                 'type': 'KNOWLEDGE_BASE',
                 'knowledgeBaseConfiguration': {
                     'knowledgeBaseId': kmID,
-                    'modelArn': self.modelArn
+                    'modelArn': modelArn
                 }
             }
         )
-        return response['output']['text']
+        return response
     
     def GetKMID(self,client):
         response = client.list_knowledge_bases()
@@ -63,10 +62,8 @@ class KBSearch:
         )
         return response.get('TranslatedText')
 
-    def __init__(self, modelArn):
-        self.modelArn = modelArn
+    def __init__(self):
         self.agentRuntimeClient = boto3.client('bedrock-agent-runtime',region_name='us-east-1')
         self.translateClient = boto3.client(service_name='translate', region_name='us-east-1', use_ssl=True)
         self.ssm_client = boto3.client('ssm', region_name='us-east-1')
 
-        #agentClient = boto3.client('bedrock-agent')

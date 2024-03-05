@@ -9,21 +9,22 @@ def main():
     searcher = KBSearch(modelArn)
     kmID = searcher.get_ssm_parameter('kb-chat-demo-km-id')
 
-    #agentClient = boto3.client('bedrock-agent')
     print("----------------------------------------------------------\nInput : ")
     for line in sys.stdin:
         if 'q' == line.rstrip():
             break
         searchText = str(line)
-        print ("LOADIND...", end="\r")
-        #searchText = 'โทษครับของ พรบ อาคารชุด มีอะไรบ้าง'
-        #searchText = 'บทลงโทษผู้ที่ฝ่าฝืนบทบัญญัติมีอะไรบ้าง'
+        print ("LOADING...", end="\r")
         result =  searcher.RetrieveAndGenerate(searchText, kmID)
-        
+        resultText = result['output']['text']
+        citations = result['citations']#
+        for citation in citations:
+            retrievedReferences = citation['retrievedReferences']
+            for ref in retrievedReferences:
+                print(ref['location']['s3Location']['uri'])
         print("Output : ")
-        print(result)
+        print(resultText)
         print("----------------------------------------------------------\nInput : ")
     print("Exit")
-    #print(GetKMID(agentClient))
-    
+
 main()
