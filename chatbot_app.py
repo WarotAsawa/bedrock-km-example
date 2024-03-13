@@ -2,9 +2,17 @@ import streamlit as st #all streamlit commands will be available through the "st
 import logging
 from KBSearch import KBSearch
 
-st.set_page_config(page_title="Warot's KB Chatbot") #HTML title
-st.title("Warot's KB Chatbot") #page title
-st.text("See prompt example here:", help="Amazon BedRock คืออะไร , AWS public IPv4 address มีกี่ประเภท , EC2 มีกี่ Instance Type , AWS Certified Data Engineer มีค่าสอบเท่าไหร่, what is c6a instance type?, 什么是亚马逊 BedRock ?, Amazon BedRock là gì? Hãy trả lời bằng câu trả lời chi tiết")
+st.set_page_config(page_title="Warot's Multi-lingual KB Chatbot") #HTML title
+st.title("Warot's Multi-lingual KB Chatbot") #page title
+st.markdown("See prompt example here:  ", help="""
+- Amazon BedRock คืออะไร
+- AWS public IPv4 address มีกี่ประเภท
+- EC2 มีกี่ Instance Type
+- AWS Certified Data Engineer มีค่าสอบเท่าไหร่
+- what is c6a instance type?
+- 什么是亚马逊 BedRock ?
+- Amazon BedRock là gì? Hãy trả lời bằng câu trả lời chi tiết
+""")
 
 kmParameterName = 'kb-chat-demo-km-id'
 fmParameterName = 'kb-chat-demo-fm-arn'
@@ -50,22 +58,26 @@ if inputText: #run the code in this if block after the user submits a chat messa
     modelResponse = searcher.RetrieveAndGenerate(thaiInput, kmID, modelArn) #call the model through the supporting library
     textResponse = modelResponse['output']['text']#call the model through the supporting library
     # Get all referenced source from the Citations
-    sourceHelp = "Source 🗃️ : \n"
-    allURL = ""
+    sourceHelp = ""
+    sourceCount = 0
     citations = modelResponse['citations']#
     for citation in citations:
         retrievedReferences = citation['retrievedReferences']
         for ref in retrievedReferences:
-            if allURL != "": allURL += " , "
-            allURL += str(ref['location']['s3Location']['uri'])
+            sourceCount = sourceCount + 1;
+            sourceHelp += "Source " + str(sourceCount) + " 🗃️ : \n"
+            sourceHelp += "["+str(ref['location']['s3Location']['uri'])+"]("+str(ref['location']['s3Location']['uri'])+")\n\n"
+            sourceHelp += "Refered text:\n```\n"
+            sourceHelp += str(ref['content']['text']) + "\n"
+            sourceHelp += "```\n\n"
     
     # Translate back
     chatResponse = searcher.TranslateFromThai(textResponse,sourceLan)
     with st.chat_message("assistant"): #display a bot chat message
-        if allURL == "":
+        if sourceHelp == "":
             st.markdown(chatResponse) #display bot's latest response
             st.session_state.chat_history.append({"role":"assistant", "text":chatResponse}) #append the bot's latest message to the chat history
         else:
-            sourceHelp = sourceHelp + allURL
+            sourceHelp = "**Refered from :green["+str(sourceCount)+"] sources:**\n\n"+sourceHelp
             st.markdown(chatResponse, help=sourceHelp) #display bot's latest response
             st.session_state.chat_history.append({"role":"assistant", "text":chatResponse, "help":sourceHelp}) #append the bot's latest message to the chat history
