@@ -6,8 +6,8 @@ import re
 searcher = KBSearch()
 
 
-st.set_page_config(page_title="Warot's SQL Chatbot") #HTML title
-st.title("Warot's SQL Chatbot") #page title
+st.set_page_config(page_title="Amazon Bedrock SQL Chatbot", page_icon=":brain:") #HTML title
+st.title("Amazon Bedrock SQL Chatbot") #page title
 st.markdown("See prompt example here:  ", help="""- Which department Shin Birdsall is in? 
 - Top 20 employee with biggest salary and their salary.
 - List each Department name and its total number of employee.

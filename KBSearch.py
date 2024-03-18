@@ -99,7 +99,7 @@ class KBSearch:
         # Return the results
         return results
     
-    def BedrockPredict(self, prompt):
+    def BedrockPredict(self, prompt, temperature=0.9):
         inputJson = {
 	        "messages": [{
 			    "role":"user","content":[{
@@ -109,7 +109,7 @@ class KBSearch:
 		    }],
 	        "anthropic_version":"bedrock-2023-05-31",
 	        "max_tokens":4096,
-	        "temperature":1,
+	        "temperature":temperature,
 	        "top_k":250,
 	        "top_p":0.999,
 	        "stop_sequences":["\\n\\nHuman:"]
@@ -190,7 +190,7 @@ class KBSearch:
     # Generate SQL Statement from Prompt
     def PredictSQLQueryStatement(self, question):
         prompt = self.GenerateSQLQueryPrompt(question)
-        sqlResult = self.BedrockPredict(prompt)
+        sqlResult = self.BedrockPredict(prompt,temperature=0.0)
         sqlResult = re.sub(r".*SELECT", "SELECT", sqlResult)
         sqlResult = re.sub(r"```", "", sqlResult)
         sqlResult = re.sub(r'\"\"\"', '\"', sqlResult)
@@ -206,7 +206,7 @@ class KBSearch:
         return jsonResult
     
     def GenerateAnswerFromQuestion(self, question):
-        prompt = "Here is my query result data as below:\n<result>"
+        prompt = "Your name is \"Shibe\". You are a personal assistant for \"Warot\". Here is my query result data as below:\n<result>"
         generatedSQL = self.PredictSQLQueryStatement(question)
         result = {}
         # Chect generated SQL error
@@ -225,10 +225,10 @@ class KBSearch:
         prompt = prompt + str(queryJson)
         #print(str(queryJson))
         prompt = prompt + "\n</result>\n"
-        prompt = prompt + "\nPlease use the result to provide the answers from the question. Be truthful, short, concise and honest. Please do not provide introduction. Please provide the answers in friendly language."
+        prompt = prompt + "\nPlease use the result to provide the answers from the question. Be truthful, short, concise and honest. Please do not provide introduction. Please provide the answers in friendly and unformat language."
         prompt = prompt + "\n<question>\n"
         prompt = prompt + question
         prompt = prompt + "\n</question>\n"
-        result['text'] = self.BedrockPredict(prompt)
+        result['text'] = self.BedrockPredict(prompt, temperature=0.9)
         result['query'] = generatedSQL
         return result;
