@@ -13,9 +13,9 @@ class KBSearch:
             return None
         return None
         
-    def Retrieve(self, text):
+    def Retrieve(self, text, knowledgeID):
         response = self.agentRuntimeClient.retrieve(
-            knowledgeBaseId=self.knowledgeID,
+            knowledgeBaseId=knowledgeID,
             retrievalQuery={
                 'text': text
             },
@@ -27,7 +27,7 @@ class KBSearch:
         )
         return response 
     
-    def RetrieveAndGenerate(self,text):
+    def RetrieveAndGenerate(self,text, modelArn, knowledgeID):
         response = self.agentRuntimeClient.retrieve_and_generate(
             #sessionId='string',
             input={
@@ -36,22 +36,39 @@ class KBSearch:
             retrieveAndGenerateConfiguration={
                 'type': 'KNOWLEDGE_BASE',
                 'knowledgeBaseConfiguration': {
-                    'knowledgeBaseId': self.knowledgeID,
-                    'modelArn': self.modelArn
+                    'knowledgeBaseId': knowledgeID,
+                    'modelArn': modelArn
                 }
             }
             #,sessionConfiguration={
             #    'kmsKeyArn': 'string'
             #}
         )
-        #print(response['retrievedReferences'])
         return response
     
-    def GetKMID(self,client):
+    def GetKMID(self):
+        client = boto3.client('bedrock-agent')
         response = client.list_knowledge_bases()
         return response
-    
-    def ListKMID(self):
+      
+    def ListAllKM(self):
+        try:
+            client = boto3.client('bedrock-agent', region_name="us-east-1")
+            response = client.list_knowledge_bases()
+            return response['knowledgeBaseSummaries']
+        except Exception as e:
+            print(f"Error retrieving List: {e}")
+            return []
+            
+    def GetKMNameFromID(self, KMID):
+        try:
+            response = self.agentRuntimeClient.get_knowledge_base(knowledgeBaseId=KMID)
+            return response['knowledgeBase']['name']
+        except Exception as e:
+            print(f"Error retrieving KM name from ID: {KMID}: {e}")
+            return "Cannot find KM ID"
+
+    def ListKMFMID(self):
         client = boto3.client('bedrock', region_name='us-east-1')
         response = client.list_foundation_models(byInferenceType='ON_DEMAND')
         return response['modelSummaries']
@@ -72,9 +89,7 @@ class KBSearch:
         )
         return response.get('TranslatedText')
 
-    def __init__(self, knowledgeID, modelArn):
-        self.knowledgeID = knowledgeID
-        self.modelArn = modelArn
+    def __init__(self):
         self.agentRuntimeClient = boto3.client('bedrock-agent-runtime', region_name='us-east-1')
         self.translateClient = boto3.client(service_name='translate', region_name='us-east-1', use_ssl=True)
         self.ssm_client = boto3.client('ssm', region_name='us-east-1')
