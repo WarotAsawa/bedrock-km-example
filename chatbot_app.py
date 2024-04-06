@@ -3,8 +3,9 @@ from KBSearch import KBSearch
 st.set_page_config(page_title="Chatbot KM Demo") #HTML title
 
 defaultKMID = 'R6D2NW0H7N'
+if 'previouskmID' not in st.session_state: st.session_state['previouskmID'] = ""
 modelArn = "arn:aws:bedrock:us-east-1::foundation-model/anthropic.claude-instant-v1"
-searcher = KBSearch()
+searcher = KBSearch('us-east-1')
 kmList = searcher.ListAllKM();
 
 # Streamlit BedRock LM List KM dropdowm
@@ -12,14 +13,33 @@ kmNameList = [];
 for km in kmList:
     if (km['status'] == 'ACTIVE'):
         kmNameList.append(km['name'])
-        
+# Set Model Arn list for select option
+modelArnList = [
+    "arn:aws:bedrock:us-east-1::foundation-model/anthropic.claude-instant-v1",
+    "arn:aws:bedrock:us-east-1::foundation-model/anthropic.claude-v2:1",
+    "arn:aws:bedrock:us-east-1::foundation-model/anthropic.claude-v2",
+    "arn:aws:bedrock:us-east-1::foundation-model/anthropic.claude-3-sonnet-20240229-v1:0"
+];
+# Gen Model Name from ARN
+modelNameList = []
+for model in modelArnList:
+    modelNameList.append(model.split('/')[1])
 
 #selector col and headline col
-headCol, selectCol = st.columns([0.7, 0.3])
-
-with selectCol:
-    kmOption = st.selectbox('Select your KM:' , kmNameList)
-    
+sideBar = st.sidebar
+kmSelector = st.sidebar
+# Sidebar component
+with sideBar:
+    st.subheader('BedRock KMs Selector')
+    kmOption = st.selectbox('Select your KM 📄:' , kmNameList)
+    st.subheader('KM LLM Selector 🧠:')
+    llmOption = st.selectbox('Select your LLM for answer generation:' , modelNameList)
+    st.subheader('KM Source File Tree 🌳:')
+    dirContainer = st.container(height=500, border=True)
+# Set modelArn
+for model in modelArnList:
+    modelName = model.split('/')[1]
+    if modelName == llmOption: modelArn = model; break;
 # Set KMID to match the selected KM Name
 kmDes = "Chat bot with KM"
 for km in kmList:
@@ -29,10 +49,35 @@ for km in kmList:
         break;
     else:
         kmID = defaultKMID;
-# Headline Streamlit
-with headCol:
-    title = kmDes + " Demo"
-    st.title(title) #page title
+# If the selection is same KMID, do not Get S3 again
+if 'sourceFiles' not in st.session_state: st.session_state['sourceFiles'] = searcher.S3TreeFromKM(kmID)
+if st.session_state['previouskmID'] != kmID:
+    #print(st.session_state['previouskmID'], kmID)
+    st.session_state['sourceFiles'] = searcher.S3TreeFromKM(kmID)
+    st.session_state['previouskmID'] = kmID
+    #print(st.session_state['previouskmID'], kmID)
+sourceFiles = st.session_state['sourceFiles']
+
+with dirContainer:
+    bucketExpanderList = []
+    for sourceFile in sourceFiles:
+        bucketExpander = st.expander("📗 "+sourceFile['bucket'])
+        bucketExpanderList.append(bucketExpander)
+        with bucketExpander:
+            allText = ""
+            if 'root' in sourceFile:
+                for rootFile in sourceFile['root']:
+                    allText = allText +"  \n├  📄 " + rootFile
+            for key in sourceFile:
+                if key == 'root': continue
+                if key == 'bucket': continue
+                allText = allText +"  \n├  📁 " + key
+                for rootFile in sourceFile[key]:
+                    allText = allText +"  \n  ├  📄 " + rootFile
+            st.markdown(allText)
+# set header
+title = kmDes + " Demo"
+st.title(title) #page title
 
 #hint col and model KM col
 hintCol, idCol = st.columns(2)
@@ -49,12 +94,9 @@ with hintCol:
 
 #Streamlit Show ModelName 
 with idCol:
-    kmName = ":gray[Now using KM :] *:green[" + kmOption +"]*"
-    st.markdown(kmName)
-    if modelArn != "":
-        modelName = modelArn.split('/')[1]
-        modelName = ":gray[Now using model :] *:orange[" + modelName +"]*"
-        st.markdown(modelName)
+    st.markdown(":gray[Now using KM :] *:green[" + kmOption +"]*  \n:gray[Now using model :] *:orange[" + llmOption +"]*"
+                )
+# Chatbox history
     
 if 'chat_history' not in st.session_state: #see if the chat history hasn't been created yet
     st.session_state.chat_history = [] #initialize the chat history
@@ -79,6 +121,9 @@ if inputText: #run the code in this if block after the user submits a chat messa
     print(sourceLan)
     modelResponse = searcher.RetrieveAndGenerate(thaiInput, modelArn, kmID)
     textResponse = modelResponse['output']['text']#call the model through the supporting library
+    # Translate back
+    chatResponse = searcher.TranslateFromThai(textResponse,sourceLan)
+
     # Get all referenced source from the Citations
     sourceHelp = ""
     sourceCount = 0
@@ -93,9 +138,6 @@ if inputText: #run the code in this if block after the user submits a chat messa
             sourceHelp += str(ref['content']['text']) + "\n"
             sourceHelp += "```\n\n"
     
-    # Translate back
-    chatResponse = searcher.TranslateFromThai(textResponse,sourceLan)
-    
     with st.chat_message("assistant"): #display a bot chat message
         if sourceHelp == "":
             st.markdown(chatResponse) #display bot's latest response
@@ -104,5 +146,3 @@ if inputText: #run the code in this if block after the user submits a chat messa
             sourceHelp = "**Refered from :green["+str(sourceCount)+"] sources:**\n\n"+sourceHelp
             st.markdown(chatResponse, help=sourceHelp) #display bot's latest response
             st.session_state.chat_history.append({"role":"assistant", "text":chatResponse, "help":sourceHelp}) #append the bot's latest message to the chat history
-
-

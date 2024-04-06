@@ -53,7 +53,7 @@ class KBSearch:
       
     def ListAllKM(self):
         try:
-            client = boto3.client('bedrock-agent', region_name="us-east-1")
+            client = boto3.client('bedrock-agent', region_name=self.region_name)
             response = client.list_knowledge_bases()
             return response['knowledgeBaseSummaries']
         except Exception as e:
@@ -69,7 +69,7 @@ class KBSearch:
             return "Cannot find KM ID"
 
     def ListKMFMID(self):
-        client = boto3.client('bedrock', region_name='us-east-1')
+        client = boto3.client('bedrock', region_name=self.region_name)
         response = client.list_foundation_models(byInferenceType='ON_DEMAND')
         return response['modelSummaries']
 
@@ -88,10 +88,71 @@ class KBSearch:
             TargetLanguageCode=lan
         )
         return response.get('TranslatedText')
+    def ListS3AllPath(self, bucket, prefixList):
+        client = boto3.client('s3')
+        results = {}
+        if len(prefixList) == 0:
+            #result = client.list_objects(Bucket=bucket, Delimiter='/')
+            paginator = client.get_paginator('list_objects')
+            page_iterator = paginator.paginate(Bucket=bucket)
+            for page in page_iterator:
+                    for obj in page['Contents']:
+                        if '/' in obj['Key']:
+                            splitPath = obj['Key'].split('/',1)
+                            if str(splitPath[0]) not in results:
+                                results[str(splitPath[0])] = []
+                            results[str(splitPath[0])].append(str(splitPath[1]))
+                        else:
+                            if 'root' not in results:
+                                results['root'] = []
+                            results['root'].append(obj['Key'])
+        else:
+            for prefix in prefixList:
+                paginator = client.get_paginator('list_objects')
+                page_iterator = paginator.paginate(Bucket=bucket,Prefix=prefix)
+                for page in page_iterator:
+                    for obj in page['Contents']:
+                        if '/' in obj['Key']:
+                            splitPath = obj['Key'].split('/',1)
+                            if str(splitPath[0]) not in results:
+                                results[str(splitPath[0])] = []
+                            results[str(splitPath[0])].append(str(splitPath[1]))
+                        else:
+                            if 'root' not in results:
+                                results['root'] = []
+                            results['root'].append(obj['Key'])
+        results['bucket']=bucket
+        #print(results)
+        return results
 
-    def __init__(self):
-        self.agentRuntimeClient = boto3.client('bedrock-agent-runtime', region_name='us-east-1')
-        self.translateClient = boto3.client(service_name='translate', region_name='us-east-1', use_ssl=True)
-        self.ssm_client = boto3.client('ssm', region_name='us-east-1')
+    def S3TreeFromKM(self, kmID):
+        agentClient = boto3.client('bedrock-agent', region_name=self.region_name)
+        datasource = agentClient.list_data_sources(knowledgeBaseId=kmID)
+        datasourceList = datasource['dataSourceSummaries']
+        bucketPrefixList = []
+        results = []
+        for datasource in datasourceList:
+            sourceDetail = agentClient.get_data_source(dataSourceId=datasource['dataSourceId'],knowledgeBaseId=kmID)
+            if (sourceDetail['dataSource']['dataSourceConfiguration']['type'] == 'S3'):
+                bucketConfig = sourceDetail['dataSource']['dataSourceConfiguration']['s3Configuration']
+                bucketPrefixList.append(bucketConfig)
+                #bucketArn = sourceDetail['dataSource']['dataSourceConfiguration']['s3Configuration']['bucketArn']
+                #prefixList = sourceDetail['dataSource']['dataSourceConfiguration']['s3Configuration']['inclusionPrefixes']
+
+        #print(bucketPrefixList)
+        for bucketPrefix in bucketPrefixList:
+            prefix = []
+            if 'inclusionPrefixes' in bucketPrefix:
+                prefix = bucketPrefix['inclusionPrefixes']
+            bucketName = bucketConfig['bucketArn'].split(':')[5]
+            results.append(self.ListS3AllPath(bucketName, prefix))
+        print("Updated bucket directory")
+        return results
+
+    def __init__(self, region_name):
+        self.region_name = region_name
+        self.agentRuntimeClient = boto3.client('bedrock-agent-runtime', region_name=self.region_name)
+        self.translateClient = boto3.client(service_name='translate', region_name=self.region_name, use_ssl=True)
+        self.ssm_client = boto3.client('ssm', region_name=self.region_name)
 
         #agentClient = boto3.client('bedrock-agent')
