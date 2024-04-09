@@ -7,6 +7,7 @@ searcher = KBSearch()
 
 
 st.set_page_config(page_title="Amazon Bedrock SQL Chatbot", page_icon=":brain:") #HTML title
+st.image('./img/bedrock.svg')
 st.title("Amazon Bedrock SQL Chatbot") #page title
 st.markdown("See prompt example here:  ", help="""- Which department Shin Birdsall is in? 
 - Top 20 employee with biggest salary and their salary.
@@ -29,7 +30,10 @@ if 'chat_history' not in st.session_state: #see if the chat history hasn't been 
     st.session_state.chat_history = [] #initialize the chat history
 
 for message in st.session_state.chat_history: #loop through the chat history
-    with st.chat_message(message["role"]): #renders a chat line for the given role, containing everything in the with block
+    avatarImg = './img/human.svg'
+    if message["role"] == "assistant": avatarImg = './img/bedrock-avatar.svg'
+    newChatMessage = st.chat_message(message["role"], avatar=avatarImg);
+    with newChatMessage: #renders a chat line for the given role, containing everything in the with block
         if "help" in message: st.markdown(message["text"], help=message["help"]) #display the chat content
         else: st.markdown(message["text"]) #display the chat content
 
@@ -59,7 +63,7 @@ if inputText: #run the code in this if block after the user submits a chat messa
     else:
         sourceHelp = "ERROR"
     # Translate back
-    with st.chat_message("assistant"): #display a bot chat message
+    with st.chat_message("assistant",avatar='./img/bedrock-avatar.svg'): #display a bot chat message
         if sourceHelp == "ERROR":
             st.markdown(chatResponse) #display bot's latest response
             st.session_state.chat_history.append({"role":"assistant", "text":chatResponse}) #append the bot's latest message to the chat history
