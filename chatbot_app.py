@@ -35,7 +35,7 @@ with sideBar:
     st.subheader('KM LLM Selector 🧠:')
     llmOption = st.selectbox('Select your LLM for answer generation:' , modelNameList)
     st.subheader('KM Source File Tree 🌳:')
-    dirContainer = st.container(height=500, border=True)
+    dirContainer = st.container(height=500, border=False)
 # Set modelArn
 for model in modelArnList:
     modelName = model.split('/')[1]
@@ -76,6 +76,7 @@ with dirContainer:
                     allText = allText +"  \n  ├  📄 " + rootFile
             st.markdown(allText)
 # set header
+st.image('./img/bedrock.svg')
 title = kmDes + " Demo"
 st.title(title) #page title
 
@@ -102,7 +103,10 @@ if 'chat_history' not in st.session_state: #see if the chat history hasn't been 
     st.session_state.chat_history = [] #initialize the chat history
 
 for message in st.session_state.chat_history: #loop through the chat history
-    with st.chat_message(message["role"]): #renders a chat line for the given role, containing everything in the with block
+    avatarImg = './img/human.svg'
+    if message["role"] == "assistant": avatarImg = './img/bedrock-avatar.svg'
+    newChatMessage = st.chat_message(message["role"], avatar=avatarImg);
+    with newChatMessage: #renders a chat line for the given role, containing everything in the with block
         if "help" in message: st.markdown(message["text"], help=message["help"]) #display the chat content
         else: st.markdown(message["text"]) #display the chat content
 
@@ -138,7 +142,7 @@ if inputText: #run the code in this if block after the user submits a chat messa
             sourceHelp += str(ref['content']['text']) + "\n"
             sourceHelp += "```\n\n"
     
-    with st.chat_message("assistant"): #display a bot chat message
+    with st.chat_message("assistant",avatar='./img/bedrock-avatar.svg'): #display a bot chat message
         if sourceHelp == "":
             st.markdown(chatResponse) #display bot's latest response
             st.session_state.chat_history.append({"role":"assistant", "text":chatResponse}) #append the bot's latest message to the chat history
