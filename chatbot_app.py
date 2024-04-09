@@ -115,7 +115,7 @@ inputText = st.chat_input("Chat with your bot here") #display a chat input box
 #searcher.Retrieve("text", kmID)
 if inputText: #run the code in this if block after the user submits a chat message
     
-    with st.chat_message("user"): #display a user chat message
+    with st.chat_message("user", avatar='./img/human.svg'): #display a user chat message
         st.markdown(inputText) #renders the user's latest message
     
     st.session_state.chat_history.append({"role":"user", "text":inputText}) #append the user's latest message to the chat history
