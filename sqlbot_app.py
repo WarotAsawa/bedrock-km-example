@@ -12,7 +12,7 @@ st.title("Amazon Bedrock SQL Chatbot") #page title
 st.markdown("See prompt example here:  ", help="""- Which department Shin Birdsall is in? 
 - Top 20 employee with biggest salary and their salary.
 - List each Department name and its total number of employee.
-- list top 10 manager with highest number of employee.
+- What is Min, Average, Max salary of each department in table format?
 - What are average salary of each job title, ranking from highest to lowest in table format.
 """)
 with open('db-schema.sql', 'r') as file:
@@ -51,22 +51,23 @@ if inputText: #run the code in this if block after the user submits a chat messa
     #logMessage['sourceLanguage'] = sourceLan
     #logMessage['inputText'] = inputText
     #logging.warning(logMessage)
-    modelResponse = searcher.GenerateAnswerFromQuestion(inputText) #call the model through the supporting library
-    chatResponse = modelResponse['text']#call the model through the supporting library
-    # Get all referenced source from the Citations
-    if 'query' in modelResponse:
-        queryTooltip = modelResponse['query']['query']
-        descriptionTooltip = modelResponse['query']['description']
-        descriptionTooltip = re.sub(r"'", "`", descriptionTooltip)
-        # addd sql source tag
-        sourceHelp = "Query : \n```sql" + queryTooltip + "```\n\n" + descriptionTooltip
-    else:
-        sourceHelp = "ERROR"
-    # Translate back
     with st.chat_message("assistant",avatar='./img/bedrock-avatar.svg'): #display a bot chat message
-        if sourceHelp == "ERROR":
-            st.markdown(chatResponse) #display bot's latest response
-            st.session_state.chat_history.append({"role":"assistant", "text":chatResponse}) #append the bot's latest message to the chat history
-        else:
-            st.markdown(chatResponse, help=sourceHelp) #display bot's latest response
-            st.session_state.chat_history.append({"role":"assistant", "text":chatResponse, "help":sourceHelp}) #append the bot's latest message to the chat history
+        with st.spinner(" Thinking 🤔 ... "):
+            modelResponse = searcher.GenerateAnswerFromQuestion(inputText) #call the model through the supporting library
+            chatResponse = modelResponse['text']#call the model through the supporting library
+            # Get all referenced source from the Citations
+            if 'query' in modelResponse:
+                queryTooltip = modelResponse['query']['query']
+                descriptionTooltip = modelResponse['query']['description']
+                descriptionTooltip = re.sub(r"'", "`", descriptionTooltip)
+                # addd sql source tag
+                sourceHelp = "Query : \n```sql" + queryTooltip + "```\n\n" + descriptionTooltip
+            else:
+                sourceHelp = "ERROR"
+    
+            if sourceHelp == "ERROR":
+                st.markdown(chatResponse) #display bot's latest response
+                st.session_state.chat_history.append({"role":"assistant", "text":chatResponse}) #append the bot's latest message to the chat history
+            else:
+                st.markdown(chatResponse, help=sourceHelp) #display bot's latest response
+                st.session_state.chat_history.append({"role":"assistant", "text":chatResponse, "help":sourceHelp}) #append the bot's latest message to the chat history
