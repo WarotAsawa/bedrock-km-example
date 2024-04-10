@@ -16,10 +16,11 @@ for km in kmList:
         kmNameList.append(km['name'])
 # Set Model Arn list for select option
 modelArnList = [
+    "arn:aws:bedrock:us-east-1::foundation-model/anthropic.claude-3-haiku-20240307-v1:0",
+    "arn:aws:bedrock:us-east-1::foundation-model/anthropic.claude-3-sonnet-20240229-v1:0",
     "arn:aws:bedrock:us-east-1::foundation-model/anthropic.claude-instant-v1",
-    "arn:aws:bedrock:us-east-1::foundation-model/anthropic.claude-v2:1",
     "arn:aws:bedrock:us-east-1::foundation-model/anthropic.claude-v2",
-    "arn:aws:bedrock:us-east-1::foundation-model/anthropic.claude-3-sonnet-20240229-v1:0"
+    "arn:aws:bedrock:us-east-1::foundation-model/anthropic.claude-v2:1"
 ];
 # Gen Model Name from ARN
 modelNameList = []
