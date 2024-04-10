@@ -119,34 +119,36 @@ if inputText: #run the code in this if block after the user submits a chat messa
         st.markdown(inputText) #renders the user's latest message
     
     st.session_state.chat_history.append({"role":"user", "text":inputText}) #append the user's latest message to the chat history
-    thaiResponse = searcher.TranslateToThai(inputText)
-    thaiInput = thaiResponse.get('TranslatedText')
-    sourceLan = thaiResponse.get('SourceLanguageCode')
-    print(sourceLan)
-    modelResponse = searcher.RetrieveAndGenerate(thaiInput, modelArn, kmID)
-    textResponse = modelResponse['output']['text']#call the model through the supporting library
-    # Translate back
-    chatResponse = searcher.TranslateFromThai(textResponse,sourceLan)
-
-    # Get all referenced source from the Citations
-    sourceHelp = ""
-    sourceCount = 0
-    citations = modelResponse['citations']#
-    for citation in citations:
-        retrievedReferences = citation['retrievedReferences']
-        for ref in retrievedReferences:
-            sourceCount = sourceCount + 1;
-            sourceHelp += "Source " + str(sourceCount) + " 🗃️ : \n"
-            sourceHelp += "["+str(ref['location']['s3Location']['uri'])+"]("+str(ref['location']['s3Location']['uri'])+")\n\n"
-            sourceHelp += "Refered text:\n```\n"
-            sourceHelp += str(ref['content']['text']) + "\n"
-            sourceHelp += "```\n\n"
-    
     with st.chat_message("assistant",avatar='./img/bedrock-avatar.svg'): #display a bot chat message
-        if sourceHelp == "":
-            st.markdown(chatResponse) #display bot's latest response
-            st.session_state.chat_history.append({"role":"assistant", "text":chatResponse}) #append the bot's latest message to the chat history
-        else:
-            sourceHelp = "**Refered from :green["+str(sourceCount)+"] sources:**\n\n"+sourceHelp
-            st.markdown(chatResponse, help=sourceHelp) #display bot's latest response
-            st.session_state.chat_history.append({"role":"assistant", "text":chatResponse, "help":sourceHelp}) #append the bot's latest message to the chat history
+        with st.spinner(" Thinking 🤔 ... "):
+            thaiResponse = searcher.TranslateToThai(inputText)
+            thaiInput = thaiResponse.get('TranslatedText')
+            sourceLan = thaiResponse.get('SourceLanguageCode')
+            print(sourceLan)
+            modelResponse = searcher.RetrieveAndGenerate(thaiInput, modelArn, kmID)
+            textResponse = modelResponse['output']['text']#call the model through the supporting library
+            # Translate back
+            chatResponse = searcher.TranslateFromThai(textResponse,sourceLan)
+    
+            # Get all referenced source from the Citations
+            sourceHelp = ""
+            sourceCount = 0
+            citations = modelResponse['citations']#
+            for citation in citations:
+                retrievedReferences = citation['retrievedReferences']
+                for ref in retrievedReferences:
+                    sourceCount = sourceCount + 1;
+                    sourceHelp += "Source " + str(sourceCount) + " 🗃️ : \n"
+                    sourceHelp += "["+str(ref['location']['s3Location']['uri'])+"]("+str(ref['location']['s3Location']['uri'])+")\n\n"
+                    sourceHelp += "Refered text:\n```\n"
+                    sourceHelp += str(ref['content']['text']) + "\n"
+                    sourceHelp += "```\n\n"
+        
+        
+            if sourceHelp == "":
+                st.markdown(chatResponse) #display bot's latest response
+                st.session_state.chat_history.append({"role":"assistant", "text":chatResponse}) #append the bot's latest message to the chat history
+            else:
+                sourceHelp = "**Refered from :green["+str(sourceCount)+"] sources:**\n\n"+sourceHelp
+                st.markdown(chatResponse, help=sourceHelp) #display bot's latest response
+                st.session_state.chat_history.append({"role":"assistant", "text":chatResponse, "help":sourceHelp}) #append the bot's latest message to the chat history
