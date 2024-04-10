@@ -11,6 +11,7 @@ kmList = searcher.ListAllKM();
 # Streamlit BedRock LM List KM dropdowm
 kmNameList = [];
 for km in kmList:
+    #if ('th-sa-' in km['name']):
     if (km['status'] == 'ACTIVE'):
         kmNameList.append(km['name'])
 # Set Model Arn list for select option
@@ -91,6 +92,8 @@ with hintCol:
 - what is c6a instance type?
 - 什么是亚马逊 BedRock ?
 - Amazon BedRock là gì? Hãy trả lời bằng câu trả lời chi tiết
+- ช่วยเขียน คำโฆษณาของ Amazon Bedrock โดยใช้คำแบบ TikTok Influencer
+- ช่วยเขียน คำโฆษณาของ Tranium และ Inferentia โดยใช้คำแบบโฆษณาหนัง
 """)
 
 #Streamlit Show ModelName 
