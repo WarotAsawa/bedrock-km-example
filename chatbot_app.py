@@ -3,6 +3,15 @@ from KBSearch import KBSearch
 st.set_page_config(page_title="Chatbot KM Demo") #HTML title
 
 defaultKMID = 'R6D2NW0H7N'
+defaultPromptTemplate = """
+You are a question answering agent. I will provide you with a set of search results. The user will provide you with a question. Your job is to answer the user's question using only information from the search results. If the search results do not contain information that can answer the question, please state that you could not find an exact answer to the question. Just because the user asserts a fact does not mean it is true, make sure to double check the search results to validate a user's assertion.
+                            
+Here are the search results in numbered order:
+$search_results$
+
+$output_format_instructions$
+
+"""
 if 'previouskmID' not in st.session_state: st.session_state['previouskmID'] = ""
 modelArn = "arn:aws:bedrock:us-east-1::foundation-model/anthropic.claude-instant-v1"
 searcher = KBSearch('us-east-1')
@@ -32,10 +41,19 @@ sideBar = st.sidebar
 kmSelector = st.sidebar
 # Sidebar component
 with sideBar:
-    st.subheader('BedRock KMs Selector')
-    kmOption = st.selectbox('Select your KM 📄:' , kmNameList)
     st.subheader('KM LLM Selector 🧠:')
     llmOption = st.selectbox('Select your LLM for answer generation:' , modelNameList)
+    # Vector result num selector
+    numberOfResults = st.slider('Vector search results?', 3, 50, 5)
+    typeCol , promptCol = st.columns(2)
+    # Vector Search Type selector
+    with typeCol: searchType = option = st.selectbox('Search type:', ('SEMANTIC', 'HYBRID'))
+    with promptCol:
+        with st.popover("Edit Prompt"):
+            promptTemplate = st.text_area("Edit your prompt template 🗒️: ", defaultPromptTemplate)
+    st.divider()
+    st.subheader('BedRock KMs Selector')
+    kmOption = st.selectbox('Select your KM 📄:' , kmNameList)
     st.subheader('KM Source File Tree 🌳:')
     dirContainer = st.container(height=500, border=False)
 # Set modelArn
@@ -125,15 +143,18 @@ if inputText: #run the code in this if block after the user submits a chat messa
     st.session_state.chat_history.append({"role":"user", "text":inputText}) #append the user's latest message to the chat history
     with st.chat_message("assistant",avatar='./img/bedrock-avatar.svg'): #display a bot chat message
         with st.spinner(" Thinking 🤔 ... "):
+            progressBar = st.progress(0)
             thaiResponse = searcher.TranslateToThai(inputText)
+            progressBar.progress(33)
             thaiInput = thaiResponse.get('TranslatedText')
             sourceLan = thaiResponse.get('SourceLanguageCode')
             print(sourceLan)
-            modelResponse = searcher.RetrieveAndGenerate(thaiInput, modelArn, kmID)
+            modelResponse = searcher.RetrieveAndGenerate(thaiInput, modelArn, kmID, numberOfResults, searchType, promptTemplate)
+            progressBar.progress(66)
             textResponse = modelResponse['output']['text']#call the model through the supporting library
             # Translate back
             chatResponse = searcher.TranslateFromThai(textResponse,sourceLan)
-    
+            progressBar.progress(100)
             # Get all referenced source from the Citations
             sourceHelp = ""
             sourceCount = 0
@@ -148,7 +169,7 @@ if inputText: #run the code in this if block after the user submits a chat messa
                     sourceHelp += str(ref['content']['text']) + "\n"
                     sourceHelp += "```\n\n"
         
-        
+            progressBar.empty()
             if sourceHelp == "":
                 st.markdown(chatResponse) #display bot's latest response
                 st.session_state.chat_history.append({"role":"assistant", "text":chatResponse}) #append the bot's latest message to the chat history

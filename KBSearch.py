@@ -27,9 +27,8 @@ class KBSearch:
         )
         return response 
     
-    def RetrieveAndGenerate(self,text, modelArn, knowledgeID):
+    def RetrieveAndGenerate(self,text, modelArn, knowledgeID, numberOfResults, searchType, promptTemplate):
         response = self.agentRuntimeClient.retrieve_and_generate(
-            #sessionId='string',
             input={
                 'text': text
             },
@@ -37,12 +36,20 @@ class KBSearch:
                 'type': 'KNOWLEDGE_BASE',
                 'knowledgeBaseConfiguration': {
                     'knowledgeBaseId': knowledgeID,
-                    'modelArn': modelArn
+                    'modelArn': modelArn,
+                    'generationConfiguration': {
+                        'promptTemplate': {
+                            'textPromptTemplate': promptTemplate
+                        }
+                    },
+                    'retrievalConfiguration': {
+                        'vectorSearchConfiguration': {
+                            'numberOfResults': numberOfResults,
+                            'overrideSearchType': searchType
+                        }
+                    }
                 }
             }
-            #,sessionConfiguration={
-            #    'kmsKeyArn': 'string'
-            #}
         )
         return response
     
