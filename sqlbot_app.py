@@ -6,6 +6,13 @@ import re
 
 searcher = SQLSearch('us-east-1')
 
+st.markdown("""
+<style>
+.stProgress .st-bo {
+    background-color: #479B86;
+}
+</style>
+""", unsafe_allow_html=True)
 
 st.set_page_config(page_title="Amazon Bedrock SQL Chatbot", page_icon=":brain:") #HTML title
 st.image('./img/bedrock.svg')
