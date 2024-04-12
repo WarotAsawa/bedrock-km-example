@@ -6,6 +6,9 @@ import re
 
 searcher = SQLSearch('us-east-1')
 
+
+
+st.set_page_config(page_title="Amazon Bedrock SQL Chatbot", page_icon=":brain:") #HTML title
 st.markdown("""
 <style>
 .stProgress .st-bo {
@@ -13,8 +16,6 @@ st.markdown("""
 }
 </style>
 """, unsafe_allow_html=True)
-
-st.set_page_config(page_title="Amazon Bedrock SQL Chatbot", page_icon=":brain:") #HTML title
 st.image('./img/bedrock.svg')
 st.title("Amazon Bedrock SQL Chatbot") #page title
 st.markdown("See prompt example here:  ", help="""- Which department Shin Birdsall is in? 
