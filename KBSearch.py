@@ -1,8 +1,6 @@
 import boto3
 import json
 import sys
-import mysql.connector
-import re
 
 class KBSearch:
     
@@ -15,9 +13,9 @@ class KBSearch:
             return None
         return None
         
-    def Retrieve(self, text, kmID):
+    def Retrieve(self, text, knowledgeID):
         response = self.agentRuntimeClient.retrieve(
-            knowledgeBaseId=kmID,
+            knowledgeBaseId=knowledgeID,
             retrievalQuery={
                 'text': text
             },
@@ -29,28 +27,59 @@ class KBSearch:
         )
         return response 
     
-    def RetrieveAndGenerate(self,text, kmID, modelArn):
+    def RetrieveAndGenerate(self,text, modelArn, knowledgeID, numberOfResults, searchType, promptTemplate):
         response = self.agentRuntimeClient.retrieve_and_generate(
-            #sessionId='string',
             input={
                 'text': text
             },
             retrieveAndGenerateConfiguration={
                 'type': 'KNOWLEDGE_BASE',
                 'knowledgeBaseConfiguration': {
-                    'knowledgeBaseId': kmID,
-                    'modelArn': modelArn
+                    'knowledgeBaseId': knowledgeID,
+                    'modelArn': modelArn,
+                    'generationConfiguration': {
+                        'promptTemplate': {
+                            'textPromptTemplate': promptTemplate
+                        }
+                    },
+                    'retrievalConfiguration': {
+                        'vectorSearchConfiguration': {
+                            'numberOfResults': numberOfResults,
+                            'overrideSearchType': searchType
+                        }
+                    }
                 }
             }
         )
         return response
     
-    def GetSSMParameter(self, paramName):
-        return self.get_ssm_parameter(paramName)
-    def GetKMID(self,client):
+    def GetKMID(self):
+        client = boto3.client('bedrock-agent')
         response = client.list_knowledge_bases()
         return response
-    
+      
+    def ListAllKM(self):
+        try:
+            client = boto3.client('bedrock-agent', region_name=self.region_name)
+            response = client.list_knowledge_bases()
+            return response['knowledgeBaseSummaries']
+        except Exception as e:
+            print(f"Error retrieving List: {e}")
+            return []
+            
+    def GetKMNameFromID(self, KMID):
+        try:
+            response = self.agentRuntimeClient.get_knowledge_base(knowledgeBaseId=KMID)
+            return response['knowledgeBase']['name']
+        except Exception as e:
+            print(f"Error retrieving KM name from ID: {KMID}: {e}")
+            return "Cannot find KM ID"
+
+    def ListKMFMID(self):
+        client = boto3.client('bedrock', region_name=self.region_name)
+        response = client.list_foundation_models(byInferenceType='ON_DEMAND')
+        return response['modelSummaries']
+
     def TranslateToThai(self, text):
         response = self.translateClient.translate_text(
             Text=str(text),
@@ -66,169 +95,71 @@ class KBSearch:
             TargetLanguageCode=lan
         )
         return response.get('TranslatedText')
+    def ListS3AllPath(self, bucket, prefixList):
+        client = boto3.client('s3')
+        results = {}
+        if len(prefixList) == 0:
+            #result = client.list_objects(Bucket=bucket, Delimiter='/')
+            paginator = client.get_paginator('list_objects')
+            page_iterator = paginator.paginate(Bucket=bucket)
+            for page in page_iterator:
+                    for obj in page['Contents']:
+                        if '/' in obj['Key']:
+                            splitPath = obj['Key'].split('/',1)
+                            if str(splitPath[0]) not in results:
+                                results[str(splitPath[0])] = []
+                            results[str(splitPath[0])].append(str(splitPath[1]))
+                        else:
+                            if 'root' not in results:
+                                results['root'] = []
+                            results['root'].append(obj['Key'])
+        else:
+            for prefix in prefixList:
+                paginator = client.get_paginator('list_objects')
+                page_iterator = paginator.paginate(Bucket=bucket,Prefix=prefix)
+                for page in page_iterator:
+                    for obj in page['Contents']:
+                        if '/' in obj['Key']:
+                            splitPath = obj['Key'].split('/',1)
+                            if str(splitPath[0]) not in results:
+                                results[str(splitPath[0])] = []
+                            results[str(splitPath[0])].append(str(splitPath[1]))
+                        else:
+                            if 'root' not in results:
+                                results['root'] = []
+                            results['root'].append(obj['Key'])
+        results['bucket']=bucket
+        #print(results)
+        return results
 
-    def __init__(self):
-        self.agentRuntimeClient = boto3.client('bedrock-agent-runtime',region_name='us-east-1')
-        self.runtimeClient = boto3.client('bedrock-runtime',region_name='us-east-1')
-        self.translateClient = boto3.client(service_name='translate', region_name='us-east-1', use_ssl=True)
-        self.ssm_client = boto3.client('ssm', region_name='us-east-1')
+    def S3TreeFromKM(self, kmID):
+        agentClient = boto3.client('bedrock-agent', region_name=self.region_name)
+        datasource = agentClient.list_data_sources(knowledgeBaseId=kmID)
+        datasourceList = datasource['dataSourceSummaries']
+        bucketPrefixList = []
+        results = []
+        for datasource in datasourceList:
+            sourceDetail = agentClient.get_data_source(dataSourceId=datasource['dataSourceId'],knowledgeBaseId=kmID)
+            if (sourceDetail['dataSource']['dataSourceConfiguration']['type'] == 'S3'):
+                bucketConfig = sourceDetail['dataSource']['dataSourceConfiguration']['s3Configuration']
+                bucketPrefixList.append(bucketConfig)
+                #bucketArn = sourceDetail['dataSource']['dataSourceConfiguration']['s3Configuration']['bucketArn']
+                #prefixList = sourceDetail['dataSource']['dataSourceConfiguration']['s3Configuration']['inclusionPrefixes']
+
+        #print(bucketPrefixList)
+        for bucketPrefix in bucketPrefixList:
+            prefix = []
+            if 'inclusionPrefixes' in bucketPrefix:
+                prefix = bucketPrefix['inclusionPrefixes']
+            bucketName = bucketConfig['bucketArn'].split(':')[5]
+            results.append(self.ListS3AllPath(bucketName, prefix))
+        print("Updated bucket directory")
+        return results
+
+    def __init__(self, region_name):
+        self.region_name = region_name
+        self.agentRuntimeClient = boto3.client('bedrock-agent-runtime', region_name=self.region_name)
+        self.translateClient = boto3.client(service_name='translate', region_name=self.region_name, use_ssl=True)
+        self.ssm_client = boto3.client('ssm', region_name=self.region_name)
 
         #agentClient = boto3.client('bedrock-agent')
-        
-    # A function to query MySQL using sql statement
-    def query(self, sql):
-        # Connect to the database
-        conn = mysql.connector.connect(
-            host=self.get_ssm_parameter('kb-chat-demo-mysql-endpoint'),
-            user=self.get_ssm_parameter('kb-chat-demo-mysql-username'),
-            password=self.get_ssm_parameter('kb-chat-demo-mysql-string'),
-            database=self.get_ssm_parameter('kb-chat-demo-mysql-databasename')
-        )
-        # Create a cursor object
-        cursor = conn.cursor()
-        # Execute the SQL statement
-        try:
-            cursor.execute(sql)
-        except:
-            return "ERROR"
-        # Fetch the results
-        results = cursor.fetchall()
-        # Close the cursor and connection
-        cursor.close()
-        conn.close()
-        # Return the results
-        return results
-    
-    def BedrockPredict(self, prompt, temperature=0.9):
-        inputJson = {
-	        "messages": [{
-			    "role":"user","content":[{
-			        "type":"text",
-					"text": prompt + "\\n"
-				}]
-		    }],
-	        "anthropic_version":"bedrock-2023-05-31",
-	        "max_tokens":4096,
-	        "temperature":temperature,
-	        "top_k":250,
-	        "top_p":0.999,
-	        "stop_sequences":["\\n\\nHuman:"]
-        }
-        inputData = json.dumps(inputJson)
-        #print(inputData)
-        modelId = "anthropic.claude-3-sonnet-20240229-v1:0"
-
-        # Invoke the model for inference
-        response = self.runtimeClient.invoke_model(contentType='application/json', body=inputData, modelId=modelId)
-
-        # Retrieve the inference response
-        result = response['body'].read().decode('utf-8')
-        inferenceJson = json.loads(result) 
-        # Process the inference result
-        result = inferenceJson['content'][0]['text']
-        return result;
-        
-    # A function to query MySQL using sql statement and return as JSON format 
-    def queryJson(self, sql):
-        # Connect to the database
-        conn = mysql.connector.connect(
-            host=self.get_ssm_parameter('kb-chat-demo-mysql-endpoint'),
-            user=self.get_ssm_parameter('kb-chat-demo-mysql-username'),
-            password=self.get_ssm_parameter('kb-chat-demo-mysql-string'),
-            database=self.get_ssm_parameter('kb-chat-demo-mysql-databasename')
-        )
-        # Create a cursor object
-        cursor = conn.cursor()
-        # Execute the SQL statement
-        try:
-            cursor.execute(sql)
-        except:
-            return {}
-        # Fetch the results
-        rows = cursor.fetchall()
-        # Close the cursor and connection
-        result = []
-        for row in rows:
-            d = {}
-            for i, col in enumerate(cursor.description):
-                d[col[0]] = str(row[i])
-            result.append(d)
-        # Convert the list of dictionaries to JSON and print it
-        #print(result)
-        json_result = json.dumps(result)
-        cursor.close()
-        conn.close()
-        # Return the results
-        return json_result
-        
-    # Generate SQL Query prompt from questions 
-    def GenerateSQLQueryPrompt(self, question):
-        tables = self.query('SHOW TABLES;')
-        allTableStatements = ""
-        for table in tables:
-            query = 'SHOW CREATE TABLE ' + table[0]
-            #return as array with 1 objects and the object is tuple with (tablename, queryresult)
-            showResult = self.query(query)[0][1]
-            # Remove DB Engine, keep column and type only
-            showResult = re.sub(r"ENGINE.*", "", showResult)
-            #print (showResult)
-
-            allTableStatements = allTableStatements + showResult + "\n\n"
-        
-        prompt = "Here is Here is my MySQL tables below:\n\n<mysql>\n"
-        prompt = prompt + allTableStatements + "\n</mysql>\n\n\n"
-        prompt = prompt + """Please convert the below statement into MySQL 8.0 Query. 
-        If there are no limit apply, please input LIMIT 20 as default value. 
-        Output in json format.
-        JSON Key "query", ONLY OUTPUT SQL CODE ENCLOSED IN THREE BACKTICKS Inside a double quote.
-        JSON Key "description" PROVIDE QUERY DETAIL DESCRIPTION AFTER IN JSON Key.\n\n<statement>\n"""
-        prompt = prompt + question
-        prompt = prompt + "\n</statement>"
-        #print(prompt)
-        return prompt
-        
-    # Generate SQL Statement from Prompt
-    def PredictSQLQueryStatement(self, question):
-        prompt = self.GenerateSQLQueryPrompt(question)
-        sqlResult = self.BedrockPredict(prompt,temperature=0.0)
-        sqlResult = re.sub(r".*SELECT", "SELECT", sqlResult)
-        sqlResult = re.sub(r"```", "", sqlResult)
-        sqlResult = re.sub(r'\"\"\"', '\"', sqlResult)
-        sqlResult = re.sub(r"json", "", sqlResult)
-        print(sqlResult)
-        jsonResult = {}
-        try:
-            jsonResult = json.loads(sqlResult,strict=False);
-        except:
-            print("Json extract error")
-            jsonResult = {}
-            
-        return jsonResult
-    
-    def GenerateAnswerFromQuestion(self, question):
-        prompt = "Your name is \"Shibe\". You are a personal assistant for \"Warot\". Here is my query result data as below:\n<result>"
-        generatedSQL = self.PredictSQLQueryStatement(question)
-        result = {}
-        # Chect generated SQL error
-        if generatedSQL == {}:
-            result['text'] = "Unexpected error occured when generate SQL Query, please try again."
-            return result;
-        sqlStatement = generatedSQL['query']
-        print("Query JSON: " + sqlStatement)
-
-        sqlStatement = re.sub(r'sql', '', sqlStatement)
-        #Get QueryJson and check error
-        queryJson = self.queryJson(sqlStatement)
-        if queryJson == {}:
-            result['text'] = "Unexpected error occured when query the database, please try again."
-            return result;
-        prompt = prompt + str(queryJson)
-        #print(str(queryJson))
-        prompt = prompt + "\n</result>\n"
-        prompt = prompt + "\nPlease use the result to provide the answers from the question. Be truthful, short, concise and honest. Please do not provide introduction. Please provide the answers in friendly and unformat language."
-        prompt = prompt + "\n<question>\n"
-        prompt = prompt + question
-        prompt = prompt + "\n</question>\n"
-        result['text'] = self.BedrockPredict(prompt, temperature=0.9)
-        result['query'] = generatedSQL
-        return result;
