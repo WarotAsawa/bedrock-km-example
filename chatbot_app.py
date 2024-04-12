@@ -1,7 +1,13 @@
 import streamlit as st #all streamlit commands will be available through the "st" alias
 from KBSearch import KBSearch
 st.set_page_config(page_title="Chatbot KM Demo") #HTML title
-
+st.markdown("""
+<style>
+.stProgress .st-bo {
+    background-color: #479B86;
+}
+</style>
+""", unsafe_allow_html=True)
 defaultKMID = 'R6D2NW0H7N'
 defaultPromptTemplate = """
 You are a question answering agent. I will provide you with a set of search results. The user will provide you with a question. Your job is to answer the user's question using only information from the search results. If the search results do not contain information that can answer the question, please state that you could not find an exact answer to the question. Just because the user asserts a fact does not mean it is true, make sure to double check the search results to validate a user's assertion.
