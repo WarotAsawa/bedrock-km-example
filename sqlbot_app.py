@@ -6,16 +6,15 @@ import re
 
 searcher = SQLSearch('us-east-1')
 
-
-
 st.set_page_config(page_title="Amazon Bedrock SQL Chatbot", page_icon=":brain:") #HTML title
-st.markdown("""
-<style>
-.stProgress .st-bo {
-    background-color: #479B86;
-}
-</style>
-""", unsafe_allow_html=True)
+
+#st.markdown("""
+#<style>
+#.stProgress .st-bo {
+#    background-color: #479B86;
+#}
+#</style>
+#""", unsafe_allow_html=True)
 st.image('./img/bedrock.svg')
 st.title("Amazon Bedrock SQL Chatbot") #page title
 st.markdown("See prompt example here:  ", help="""- Which department Shin Birdsall is in? 
@@ -61,47 +60,51 @@ if inputText: #run the code in this if block after the user submits a chat messa
     #logMessage['inputText'] = inputText
     #logging.warning(logMessage)
     with st.chat_message("assistant",avatar='./img/bedrock-avatar.svg'): #display a bot chat message
-        with st.spinner(" Thinking 🤔 ... "):
-            progressBar = st.progress(0)
+        with st.spinner(" Thinking 🤔    ▰▰▱▱▱▱▱▱▱▱▱▱▱▱▱▱▱▱▱▱"):
+            #progressBar = st.progress(0)
             prompt = searcher.GenerateSQLQueryPrompt(inputText)
-            progressBar.progress(20)
+            #progressBar.progress(20)
+        with st.spinner(" Thinking 🤔    ▰▰▰▰▰▰▱▱▱▱▱▱▱▱▱▱▱▱▱▱"):
             sqlResult = searcher.BedrockPredict(prompt,temperature=0.0)
-            progressBar.progress(40)
+            #progressBar.progress(40)
+        with st.spinner(" Thinking 🤔    ▰▰▰▰▰▰▰▰▰▱▱▱▱▱▱▱▱▱▱▱"):
             generatedSQL = searcher.GetSQLQueryStatement(sqlResult)
-            progressBar.progress(60)
+            #progressBar.progress(60)
             sqlStatement = ""
             isError = False
             if generatedSQL == {}:
                 chatResponse = "Unexpected error occured when generate SQL Query, please try again."
                 isError = True
-            else: 
+        with st.spinner(" Thinking 🤔    ▰▰▰▰▰▰▰▰▰▰▰▰▰▱▱▱▱▱▱▱"): 
+            if isError == False:
                 sqlStatement = generatedSQL['query']
                 sqlStatement = re.sub(r'sql', '', sqlStatement)
                 sqlStatement = re.sub(r'sql', '', sqlStatement)
                 #Get QueryJson and check error
                 queryJson = searcher.queryJson(sqlStatement)
-                progressBar.progress(80)
+                #progressBar.progress(80)
                 if queryJson == {}:
                     chatResponse = "Unexpected error occured when query the database, please try again."
                     isError = True
-                else:
-                    prompt = "Your name is \"Shibe\". You are a personal assistant for \"Warot\". Here is my query result data as below:\n<result>"
-                    prompt = prompt + str(queryJson)
-                    prompt = prompt + "\n</result>\n"
-                    prompt = prompt + "\nPlease use the result to provide the answers from the question. Be truthful, short, concise and honest. Please do not provide introduction. Please provide the answers in friendly and unformat language."
-                    prompt = prompt + "\n<question>\n"
-                    prompt = prompt + inputText
-                    prompt = prompt + "\n</question>\n"
-                    chatResponse = searcher.BedrockPredict(prompt, temperature=0.9)
-                    progressBar.progress(100)
-                    # Get all referenced source from the Citations
-                    queryTooltip = generatedSQL['query']
-                    descriptionTooltip = generatedSQL['description']
-                    descriptionTooltip = re.sub(r"'", "`", descriptionTooltip)
-                    # addd sql source tag
-                    sourceHelp = "Query : \n```sql" + queryTooltip + "```\n\n" + descriptionTooltip
+        with st.spinner(" Thinking 🤔    ▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▱▱▱"): 
+            if isError == False:        
+                prompt = "Your name is \"Shibe\". You are a personal assistant for \"Warot\". Here is my query result data as below:\n<result>"
+                prompt = prompt + str(queryJson)
+                prompt = prompt + "\n</result>\n"
+                prompt = prompt + "\nPlease use the result to provide the answers from the question. Be truthful, short, concise and honest. Please do not provide introduction. Please provide the answers in friendly and unformat language."
+                prompt = prompt + "\n<question>\n"
+                prompt = prompt + inputText
+                prompt = prompt + "\n</question>\n"
+                chatResponse = searcher.BedrockPredict(prompt, temperature=0.9)
+                #progressBar.progress(100)
+                # Get all referenced source from the Citations
+                queryTooltip = generatedSQL['query']
+                descriptionTooltip = generatedSQL['description']
+                descriptionTooltip = re.sub(r"'", "`", descriptionTooltip)
+                # addd sql source tag
+                sourceHelp = "Query : \n```sql" + queryTooltip + "```\n\n" + descriptionTooltip
     
-            progressBar.empty()
+            #progressBar.empty()
             if isError:
                 st.markdown(chatResponse) #display bot's latest response
                 st.session_state.chat_history.append({"role":"assistant", "text":chatResponse}) #append the bot's latest message to the chat history
