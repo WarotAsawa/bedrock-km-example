@@ -66,7 +66,18 @@ class KBSearch:
         except Exception as e:
             print(f"Error retrieving List: {e}")
             return []
-            
+    
+    def ListAllAgent(self):
+        # A function to write code to List all Bedrock Agent Name
+        try:
+            client = boto3.client('bedrock-agent', region_name=self.region_name)
+            response = client.list_agents()
+            return response['agentSummaries']
+        #return response['agentSummaries'][0]['agentName']
+        except Exception as e:
+            print(f"Error retrieving List: {e}")
+            return []
+        
     def GetKMNameFromID(self, KMID):
         try:
             response = self.agentRuntimeClient.get_knowledge_base(knowledgeBaseId=KMID)
@@ -134,26 +145,40 @@ class KBSearch:
 
     def S3TreeFromKM(self, kmID):
         agentClient = boto3.client('bedrock-agent', region_name=self.region_name)
-        datasource = agentClient.list_data_sources(knowledgeBaseId=kmID)
-        datasourceList = datasource['dataSourceSummaries']
-        bucketPrefixList = []
-        results = []
-        for datasource in datasourceList:
-            sourceDetail = agentClient.get_data_source(dataSourceId=datasource['dataSourceId'],knowledgeBaseId=kmID)
-            if (sourceDetail['dataSource']['dataSourceConfiguration']['type'] == 'S3'):
-                bucketConfig = sourceDetail['dataSource']['dataSourceConfiguration']['s3Configuration']
-                bucketPrefixList.append(bucketConfig)
-                #bucketArn = sourceDetail['dataSource']['dataSourceConfiguration']['s3Configuration']['bucketArn']
-                #prefixList = sourceDetail['dataSource']['dataSourceConfiguration']['s3Configuration']['inclusionPrefixes']
-
-        #print(bucketPrefixList)
-        for bucketPrefix in bucketPrefixList:
-            prefix = []
-            if 'inclusionPrefixes' in bucketPrefix:
-                prefix = bucketPrefix['inclusionPrefixes']
-            bucketName = bucketConfig['bucketArn'].split(':')[5]
-            results.append(self.ListS3AllPath(bucketName, prefix))
-        print("Updated bucket directory")
+        response = agentClient.get_knowledge_base(knowledgeBaseId=kmID)
+        results = {}
+        results['types'] = ''
+        results['list'] = []
+        # If Vector KM
+        if 'vectorKnowledgeBaseConfiguration' in response['knowledgeBase']['knowledgeBaseConfiguration']:
+            results['types'] = 'vector'
+            datasource = agentClient.list_data_sources(knowledgeBaseId=kmID)
+            datasourceList = datasource['dataSourceSummaries']
+            bucketPrefixList = []
+            
+            for datasource in datasourceList:
+                sourceDetail = agentClient.get_data_source(dataSourceId=datasource['dataSourceId'],knowledgeBaseId=kmID)
+                if (sourceDetail['dataSource']['dataSourceConfiguration']['type'] == 'S3'):
+                    bucketConfig = sourceDetail['dataSource']['dataSourceConfiguration']['s3Configuration']
+                    bucketPrefixList.append(bucketConfig)
+            for bucketPrefix in bucketPrefixList:
+                prefix = []
+                if 'inclusionPrefixes' in bucketPrefix:
+                    prefix = bucketPrefix['inclusionPrefixes']
+                bucketName = bucketConfig['bucketArn'].split(':')[5]
+                results['list'].append(self.ListS3AllPath(bucketName, prefix))
+            print("Updated bucket directory")
+        elif 'sqlKnowledgeBaseConfiguration' in response['knowledgeBase']['knowledgeBaseConfiguration']:
+            results['types'] = 'sql'
+            storageConfigurations = response['knowledgeBase']['knowledgeBaseConfiguration']['sqlKnowledgeBaseConfiguration']['redshiftConfiguration']['storageConfigurations']
+            for storage in storageConfigurations:
+                print(storage)
+                if 'redshiftConfiguration' in storage:
+                    results['list'].append(f"🛢️ *REDSHIFT Database:* {str(storage['redshiftConfiguration']['databaseName'])}")
+                if 'awsDataCatalogConfiguration' in storage:
+                    tableNames = storage['awsDataCatalogConfiguration']['tableNames']
+                    for tableName in tableNames:
+                        results['list'].append(f"🗳️ *GLUE Table:* {tableName}")
         return results
 
     def __init__(self, region_name):
