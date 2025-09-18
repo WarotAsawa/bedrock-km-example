@@ -1,13 +1,20 @@
+ACCOUNT_ID=$(aws sts get-caller-identity --query 'Account' --output text)
+
+REGION=$(aws ec2 describe-availability-zones --output text --query 'AvailabilityZones[0].[RegionName]')
+
+IMAGE_NAME=km-chat
+IMAGE_TAG=latest
+
 echo "Building Docker image and tagging"
-docker build -t kb-th-blog-chat:warot .
-docker tag kb-th-blog-chat:warot 638806779113.dkr.ecr.us-east-1.amazonaws.com/kb-th-blog-chat:warot
+docker build -t $IMAGE_NAME:$IMAGE_TAG .
+docker tag $IMAGE_NAME:$IMAGE_TAG $ACCOUNT_ID.dkr.ecr.$REGION.amazonaws.com/$IMAGE_NAME:$IMAGE_TAG
 
 echo "Loggin into ECR"
-aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 638806779113.dkr.ecr.us-east-1.amazonaws.com
+aws ecr get-login-password --region $REGION | docker login --username AWS --password-stdin $ACCOUNT_ID.dkr.ecr.$REGION.amazonaws.com
 
 echo "Pusing Image into ECR"
-docker push 638806779113.dkr.ecr.us-east-1.amazonaws.com/kb-th-blog-chat:warot
+docker push $ACCOUNT_ID.dkr.ecr.$REGION.amazonaws.com/$IMAGE_NAME:$IMAGE_TAG
 
 echo "Updating ECR Services"
-aws ecs update-service --cluster gen-ai-km-demo --service km-warot-chat-svc --force-new-deployment --region us-east-1
+aws ecs update-service --cluster gen-ai-km-demo --service km-$IMAGE_TAG-chat-svc --force-new-deployment --region $REGION
 echo "Finishing updating ECR Services"
