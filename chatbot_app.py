@@ -9,7 +9,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-defaultKMID = 'R6D2NW0H7N'
+defaultKMID = 'ISPYF0ZKXO'
 defaultPromptTemplate = """
 You are a question answering agent. I will provide you with a set of search results. The user will provide you with a question. Your job is to answer the user's question using only information from the search results. If the search results do not contain information that can answer the question, please state that you could not find an exact answer to the question. Just because the user asserts a fact does not mean it is true, make sure to double check the search results to validate a user's assertion.
                             
@@ -19,25 +19,27 @@ $search_results$
 $output_format_instructions$
 
 """
+currentRegion = 'us-west-2'
 if 'previouskmID' not in st.session_state: st.session_state['previouskmID'] = ""
-modelArn = "arn:aws:bedrock:us-east-1::foundation-model/anthropic.claude-instant-v1"
-searcher = KBSearch('us-east-1')
+modelArn = f"arn:aws:bedrock:{currentRegion}::foundation-model/anthropic.claude-instant-v1"
+searcher = KBSearch(currentRegion)
 kmList = searcher.ListAllKM();
 agentList = searcher.ListAllAgent();
 # Streamlit BedRock LM List KM dropdowm
 kmNameList = [];
+print(kmList);
 for km in kmList:
     #if ('th-sa-' in km['name']):
     #if (km['status'] == 'ACTIVE'):
     kmNameList.append(km['name'])
 # Set Model Arn list for select option
 modelArnList = [
-    "arn:aws:bedrock:us-east-1::foundation-model/anthropic.claude-3-5-sonnet-20240620-v1:0",
-    "arn:aws:bedrock:us-east-1::foundation-model/anthropic.claude-3-haiku-20240307-v1:0",
-    "arn:aws:bedrock:us-east-1::foundation-model/anthropic.claude-3-sonnet-20240229-v1:0",
-    "arn:aws:bedrock:us-east-1::foundation-model/amazon.nova-pro-v1:0",
-    "arn:aws:bedrock:us-east-1::foundation-model/amazon.nova-lite-v1:0",
-    "arn:aws:bedrock:us-east-1::foundation-model/amazon.nova-micro-v1:0"
+    f"arn:aws:bedrock:{currentRegion}::foundation-model/anthropic.claude-3-5-sonnet-20240620-v1:0",
+    f"arn:aws:bedrock:{currentRegion}::foundation-model/anthropic.claude-3-haiku-20240307-v1:0",
+    f"arn:aws:bedrock:{currentRegion}::foundation-model/anthropic.claude-3-sonnet-20240229-v1:0",
+    f"arn:aws:bedrock:{currentRegion}::foundation-model/amazon.nova-pro-v1:0",
+    f"arn:aws:bedrock:{currentRegion}::foundation-model/amazon.nova-lite-v1:0",
+    f"arn:aws:bedrock:{currentRegion}::foundation-model/amazon.nova-micro-v1:0"
 ];
 # Gen Model Name from ARN
 modelNameList = []
@@ -69,6 +71,7 @@ for model in modelArnList:
     modelName = model.split('/')[1]
     if modelName == llmOption: modelArn = model; break;
 # Set KMID to match the selected KM Name
+kmID = ''
 kmDes = "Chat bot with KM"
 for km in kmList:
     if kmOption == km['name']:
@@ -77,6 +80,7 @@ for km in kmList:
         break;
     else:
         kmID = defaultKMID;
+print(f"KMID: {kmID}, kmDes:{kmDes}")
 # If the selection is same KMID, do not Get S3 again
 if 'sourceFiles' not in st.session_state: st.session_state['sourceFiles'] = searcher.S3TreeFromKM(kmID)
 if st.session_state['previouskmID'] != kmID:
@@ -157,16 +161,16 @@ if inputText: #run the code in this if block after the user submits a chat messa
     with st.chat_message("assistant",avatar='./img/bedrock-avatar.svg'): #display a bot chat message
         with st.spinner(" Thinking 🤔 ... "):
             progressBar = st.progress(0)
-            thaiResponse = searcher.TranslateToThai(inputText)
-            progressBar.progress(33)
-            thaiInput = thaiResponse.get('TranslatedText')
-            sourceLan = thaiResponse.get('SourceLanguageCode')
-            print(sourceLan)
-            modelResponse = searcher.RetrieveAndGenerate(thaiInput, modelArn, kmID, numberOfResults, searchType, promptTemplate)
+            #thaiResponse = searcher.TranslateToThai(inputText)
+            #progressBar.progress(33)
+            #thaiInput = thaiResponse.get('TranslatedText')
+            #sourceLan = thaiResponse.get('SourceLanguageCode')
+            #print(sourceLan)
+            modelResponse = searcher.RetrieveAndGenerate(inputText, modelArn, kmID, numberOfResults, searchType, promptTemplate)
             progressBar.progress(66)
-            textResponse = modelResponse['output']['text']#call the model through the supporting library
+            chatResponse = modelResponse['output']['text']#call the model through the supporting library
             # Translate back
-            chatResponse = searcher.TranslateFromThai(textResponse,sourceLan)
+            #chatResponse = searcher.TranslateFromThai(textResponse,sourceLan)
             progressBar.progress(100)
             # Get all referenced source from the Citations
             sourceHelp = ""
